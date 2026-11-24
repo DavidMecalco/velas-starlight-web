@@ -92,6 +92,14 @@ export function sanitizeQuery(value: string | null | undefined): string {
     .trim();
 }
 
+/**
+ * Prepara el texto para compararlo con la columna search_text de la vista
+ * (que usa lower + unaccent): minúsculas y sin acentos ("Jabón" → "jabon").
+ */
+export function toSearchText(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 function normalize(row: CatalogProduct): CatalogProduct {
   return {
     ...row,
@@ -104,7 +112,10 @@ function normalize(row: CatalogProduct): CatalogProduct {
 export async function listProducts(params: ListProductsParams = {}): Promise<ProductPage> {
   const sort = parseSort(params.sort);
   const page = parsePage(params.page);
+  // q: limpio pero con acentos, para mostrarlo en el buscador.
+  // searchText: además en minúsculas y sin acentos, para filtrar.
   const q = sanitizeQuery(params.q);
+  const searchText = toSearchText(q);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
@@ -112,7 +123,7 @@ export async function listProducts(params: ListProductsParams = {}): Promise<Pro
   const filtered = (columns: string, head = false) => {
     let base = supabase.from('catalog_products').select(columns, { count: 'exact', head });
     if (params.category) base = base.eq('category_slug', params.category);
-    if (q) base = base.or(`name.ilike.%${q}%,short_description.ilike.%${q}%`);
+    if (searchText) base = base.like('search_text', `%${searchText}%`);
     return base;
   };
 
