@@ -9,7 +9,7 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 | Idioma de las URL | Español, en minúsculas, sin acentos ni eñes, palabras separadas por guion (`/moldes-3d`). |
 | Idioma del código | Inglés para variables, funciones y tablas; español solo en rutas y textos visibles. |
 | Slugs | Únicos, estables y generados desde el nombre (`vela-de-cedro`). Si el producto cambia de nombre, el slug no cambia. |
-| Filtros del catálogo | Por parámetros de URL (`?q=`, `?orden=`, `?pagina=`) para que se puedan compartir y recargar. |
+| Filtros del catálogo | Por parámetros de URL (`?q=`, `?orden=`, `?pagina=`) para que se puedan compartir y recargar. La categoría va en la ruta: `/categoria/<slug>`. `/productos?categoria=<slug>` se acepta como alias (enlaces ya compartidos) y su canonical apunta a `/categoria/<slug>`. |
 | Archivos | En Astro la ruta es el archivo: `src/pages/productos/[slug].astro` responde en `/productos/vela-de-cedro`. |
 | Renderizado | **Estática**: se genera una vez (`prerender = true`). **Servidor (SSR)**: se genera en cada visita con datos actuales. |
 
@@ -49,7 +49,7 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 | `/` | `index.astro` | Presentar la marca, productos destacados y accesos a categorías | Estática (se reconstruye al cambiar destacados) o SSR con caché | `products` (`is_featured`), `categories` | 1 |
 | `/productos` | `productos/index.astro` | Catálogo completo con filtros, búsqueda, orden y paginación | SSR | `products`, `product_variants`, `product_images`, `categories` | 1 |
 | `/productos/[slug]` | `productos/[slug].astro` | Detalle: galería, variantes (aroma, tamaño), precio, stock, mayoreo, reseñas, botón de agregar | SSR | `products`, `product_variants`, `product_images`, `wholesale_tiers`, `reviews` | 2 |
-| `/categoria/[slug]` | `categoria/[slug].astro` | Catálogo de una categoría con su propia URL e introducción (SEO) | SSR | `categories`, `products` | 2 |
+| `/categoria/[slug]` | `categoria/[slug].astro` | Catálogo de una categoría con su propia URL e introducción (SEO). Mismo listado que `/productos` (componente `CatalogListing`); búsqueda, orden y paginación se quedan en `/categoria/<slug>`. Categoría inexistente: 404 | SSR | `categories`, `catalog_products`, textos en `src/data/category-intros.ts` | 2 |
 | `/carrito` | `carrito.astro` | Revisar productos, cantidades y subtotal. Convive con el cajón lateral del encabezado | SSR (valida precios y stock) | `product_variants` | 3 |
 | `/checkout` | `checkout.astro` | Correo, dirección, método de envío, datos de facturación opcionales y pago | SSR | `addresses`, `orders` | 4 |
 | `/checkout/confirmacion/[pedido]` | `checkout/confirmacion/[pedido].astro` | Resumen del pedido y siguiente paso (referencia de pago, tiempos) | SSR | `orders`, `order_items`, `payments` | 4 |
@@ -119,6 +119,8 @@ Los endpoints viven en `src/pages/api/`. Los que escriben datos sensibles usan l
 **Encabezado (todas las páginas):** Inicio · Productos · Contacto · cuenta (ícono) · carrito (ícono con contador).
 Al pasar sobre "Productos" se despliegan las categorías: Velas, Belleza, Insumos, Moldes 3D.
 
+**Catálogo:** los botones de categoría de `/productos` y `/categoria/*` llevan a `/categoria/<slug>` (conservando `q` y `orden`); "Todos" lleva a `/productos`. Las migas del detalle enlazan a `/categoria/<slug>`.
+
 **Pie de página:**
 - *Tienda:* Velas, Belleza, Insumos, Moldes 3D
 - *Ayuda:* Envíos, Devoluciones, Preguntas frecuentes, Contacto, Eventos y mayoreo
@@ -131,7 +133,7 @@ Al pasar sobre "Productos" se despliegan las categorías: Velas, Belleza, Insumo
 | Protección por rol | `middleware.ts` revisa la sesión: `/cuenta/*` requiere cliente, `/admin/*` requiere admin. Sin permiso, redirige a `/iniciar-sesion` o responde 403. |
 | No indexar | `noindex` en `/carrito`, `/checkout/*`, `/cuenta/*`, `/admin/*`, `/iniciar-sesion`. |
 | Indexar | `/`, `/productos`, `/categoria/*`, `/productos/[slug]`, páginas informativas y legales. |
-| URL canónica | Cada producto tiene una sola URL; las páginas filtradas o paginadas apuntan a la del catálogo base. |
+| URL canónica | Cada producto tiene una sola URL; las páginas filtradas o paginadas apuntan a la del catálogo base. `/productos?...` → `/productos`; `/categoria/<slug>?...` → `/categoria/<slug>`; `/productos?categoria=<slug>` → `/categoria/<slug>`. El detalle (`?variante=`) → `/productos/<slug>`. |
 | Datos estructurados | `Product` y `Offer` (schema.org) en el detalle para mostrar precio y disponibilidad en Google. |
 | Redirecciones | Si se conservan URL del sitio anterior, `/pages/productos.html` redirige (301) a `/productos`. |
 

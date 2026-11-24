@@ -122,7 +122,7 @@ const jsonLd =
             </li>
             {product.category && (
               <li>
-                <a href={`/productos?categoria=${encodeURIComponent(product.category.slug)}`}>{product.category.name}</a>
+                <a href={`/categoria/${encodeURIComponent(product.category.slug)}`}>{product.category.name}</a>
               </li>
             )}
             <li aria-current="page">{product.name}</li>
