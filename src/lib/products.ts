@@ -192,3 +192,142 @@ export async function listCategories(): Promise<CategoryWithCount[]> {
     product_count: counts.get(c.id) ?? 0,
   }));
 }
+
+// ---------------------------------------------------------------------
+// Detalle de producto (/productos/[slug])
+// ---------------------------------------------------------------------
+
+export interface WholesaleTier {
+  min_qty: number;
+  unit_price: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  name: string;
+  /** Ej. {"aroma":"Lavanda","tamano":"200 g"} */
+  options: Record<string, string>;
+  price: number;
+  compare_at_price: number | null;
+  stock: number;
+  weight_grams: number | null;
+  /** Escalones de mayoreo, de menor a mayor cantidad mínima. */
+  wholesale_tiers: WholesaleTier[];
+}
+
+export interface ProductImage {
+  id: string;
+  url: string;
+  alt: string | null;
+  /** Si la imagen corresponde a una variante concreta. */
+  variant_id: string | null;
+}
+
+export interface ProductCategory {
+  id: string;
+  slug: string;
+  name: string;
+  kind: ProductKind;
+}
+
+export interface ProductDetail {
+  id: string;
+  slug: string;
+  name: string;
+  short_description: string | null;
+  description: string | null;
+  kind: ProductKind;
+  is_new: boolean;
+  is_bestseller: boolean;
+  attributes: Record<string, unknown>;
+  seo_title: string | null;
+  seo_description: string | null;
+  category: ProductCategory | null;
+  /** Solo variantes activas, por sort_order. Nunca vacía. */
+  variants: ProductVariant[];
+  /** Por sort_order. */
+  images: ProductImage[];
+}
+
+/** Forma cruda que devuelve PostgREST (numeric puede llegar como texto). */
+interface RawProductDetail extends Omit<ProductDetail, 'variants' | 'images'> {
+  variants: (Omit<ProductVariant, 'price' | 'compare_at_price' | 'wholesale_tiers'> & {
+    price: number | string;
+    compare_at_price: number | string | null;
+    sort_order: number;
+    wholesale_tiers: { min_qty: number; unit_price: number | string }[] | null;
+  })[];
+  images: (ProductImage & { sort_order: number })[];
+}
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const DETAIL_COLUMNS = `
+  id, slug, name, short_description, description, kind, is_new, is_bestseller,
+  attributes, seo_title, seo_description,
+  category:categories ( id, slug, name, kind ),
+  variants:product_variants (
+    id, sku, name, options, price, compare_at_price, stock, weight_grams, sort_order,
+    wholesale_tiers ( min_qty, unit_price )
+  ),
+  images:product_images ( id, url, alt, variant_id, sort_order )
+`;
+
+/**
+ * Devuelve un producto activo con sus variantes activas, imágenes,
+ * escalones de mayoreo y categoría. Devuelve null si el slug no es válido,
+ * si el producto no existe, está inactivo o no tiene variantes activas.
+ * Lanza un error genérico si la base de datos falla.
+ */
+export async function getProductBySlug(slug: string | null | undefined): Promise<ProductDetail | null> {
+  const clean = (slug ?? '').trim();
+  if (!clean || clean.length > 120 || !SLUG_PATTERN.test(clean)) return null;
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(DETAIL_COLUMNS)
+    .eq('slug', clean)
+    .eq('is_active', true)
+    .eq('variants.is_active', true)
+    .maybeSingle();
+
+  if (error) throw new CatalogError();
+  if (!data) return null;
+
+  const raw = data as unknown as RawProductDetail;
+  if (!raw.variants || raw.variants.length === 0) return null;
+
+  const variants: ProductVariant[] = [...raw.variants]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ sort_order: _order, ...v }) => ({
+      ...v,
+      options: v.options ?? {},
+      price: Number(v.price),
+      compare_at_price: v.compare_at_price == null ? null : Number(v.compare_at_price),
+      wholesale_tiers: (v.wholesale_tiers ?? [])
+        .map((t) => ({ min_qty: t.min_qty, unit_price: Number(t.unit_price) }))
+        .sort((a, b) => a.min_qty - b.min_qty),
+    }));
+
+  const images: ProductImage[] = [...(raw.images ?? [])]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ sort_order: _order, ...img }) => img);
+
+  return {
+    id: raw.id,
+    slug: raw.slug,
+    name: raw.name,
+    short_description: raw.short_description,
+    description: raw.description,
+    kind: raw.kind,
+    is_new: raw.is_new,
+    is_bestseller: raw.is_bestseller,
+    attributes: raw.attributes ?? {},
+    seo_title: raw.seo_title,
+    seo_description: raw.seo_description,
+    category: raw.category ?? null,
+    variants,
+    images,
+  };
+}
