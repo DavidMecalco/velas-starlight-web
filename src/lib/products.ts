@@ -48,6 +48,17 @@ export interface ListProductsParams {
   sort?: string | null;
   /** Página (`?pagina=`), empieza en 1. */
   page?: string | number | null;
+  /** true = solo productos destacados (is_featured), para el inicio. */
+  featured?: boolean;
+  /** Productos por página, de 1 a MAX_LIMIT. Por defecto PAGE_SIZE (12). */
+  limit?: number;
+}
+
+/** Máximo de productos por consulta. */
+export const MAX_LIMIT = 48;
+
+function parseLimit(value: number | undefined): number {
+  return Number.isInteger(value) && value! >= 1 ? Math.min(value!, MAX_LIMIT) : PAGE_SIZE;
 }
 
 export interface ProductPage {
@@ -108,22 +119,27 @@ function normalize(row: CatalogProduct): CatalogProduct {
   };
 }
 
-/** Lista los productos activos con filtros, búsqueda, orden y paginación de 12 en 12. */
+/**
+ * Lista los productos activos con filtros, búsqueda, orden y paginación
+ * (12 por página, o `limit`). Con `featured: true`, solo los destacados.
+ */
 export async function listProducts(params: ListProductsParams = {}): Promise<ProductPage> {
   const sort = parseSort(params.sort);
   const page = parsePage(params.page);
+  const pageSize = parseLimit(params.limit);
   // q: limpio pero con acentos, para mostrarlo en el buscador.
   // searchText: además en minúsculas y sin acentos, para filtrar.
   const q = sanitizeQuery(params.q);
   const searchText = toSearchText(q);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
   // Construye la consulta con los filtros comunes (para la página y para el conteo).
   const filtered = (columns: string, head = false) => {
     let base = supabase.from('catalog_products').select(columns, { count: 'exact', head });
     if (params.category) base = base.eq('category_slug', params.category);
     if (searchText) base = base.like('search_text', `%${searchText}%`);
+    if (params.featured) base = base.eq('is_featured', true);
     return base;
   };
 
@@ -153,7 +169,7 @@ export async function listProducts(params: ListProductsParams = {}): Promise<Pro
     const { count: realTotal, error: countError } = await filtered('id', true);
     if (countError) throw new CatalogError();
     const total = realTotal ?? 0;
-    return { items: [], total, page, totalPages: Math.ceil(total / PAGE_SIZE), pageSize: PAGE_SIZE, sort, q };
+    return { items: [], total, page, totalPages: Math.ceil(total / pageSize), pageSize, sort, q };
   }
   if (error) throw new CatalogError();
 
@@ -163,8 +179,8 @@ export async function listProducts(params: ListProductsParams = {}): Promise<Pro
     items: (data as unknown as CatalogProduct[]).map(normalize),
     total,
     page,
-    totalPages: Math.ceil(total / PAGE_SIZE),
-    pageSize: PAGE_SIZE,
+    totalPages: Math.ceil(total / pageSize),
+    pageSize,
     sort,
     q,
   };
