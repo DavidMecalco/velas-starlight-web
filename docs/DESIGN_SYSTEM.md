@@ -86,12 +86,15 @@ Cormorant es muy fina: **no usarla por debajo de 22 px**. Para todo texto peque�
 | `--text-base` | 16 px | 16 px | 1.65 | Texto normal |
 | `--text-sm` | 14 px | 14 px | 1.4 | Datos secundarios, ayudas |
 | `--text-xs` | 13 px | 13 px | 1.4 | Insignias, avisos legales |
+| `--text-card` | 22 px | 24 px | 1.15 | Nombre de producto en tarjeta (Cormorant) |
+
+`--tracking-logo` (0.3em) se usa **solo** en el logotipo "VELAS / STARLIGHT"; es la única excepción a la regla de no usar mayúsculas espaciadas.
 
 Reglas:
 - Ancho máximo de párrafo: **62 caracteres** (`--measure`).
 - Títulos con interletrado ligeramente negativo (`-0.012em`); texto normal sin ajuste.
 - Evitar mayúsculas sostenidas con espaciado amplio y evitar resaltar una sola palabra del título con otro color o cursiva.
-- Precios siempre con cifras tabulares (`.price`).
+- Precios siempre con cifras tabulares (`.price`). Rebaja: precio actual con `.price--sale` (latón) y anterior tachado con `.price--compare`.
 - Un solo `h1` por página. No saltarse niveles.
 - Alineación: títulos y texto **a la izquierda** por defecto; centrar solo el hero y los encabezados de sección cortos.
 

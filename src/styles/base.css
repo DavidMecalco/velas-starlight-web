@@ -52,6 +52,13 @@ p { max-width: var(--measure); text-wrap: pretty; }
 .small { font-size: var(--text-sm); }
 .muted { color: var(--color-text-muted); }
 .price { font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
+.price--sale { color: var(--color-accent); }
+.price--compare {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
 
 a {
   color: var(--color-primary);

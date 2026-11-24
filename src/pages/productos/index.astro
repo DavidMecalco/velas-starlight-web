@@ -1,0 +1,334 @@
+---
+import Base from "../../layouts/Base.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import {
+  listProducts,
+  listCategories,
+  parsePage,
+  parseSort,
+  type CategoryWithCount,
+  type ProductPage,
+} from "../../lib/products";
+
+const params = Astro.url.searchParams;
+const current = {
+  categoria: params.get("categoria") ?? "",
+  q: params.get("q") ?? "",
+  orden: parseSort(params.get("orden")),
+  pagina: parsePage(params.get("pagina")),
+};
+
+const sortLabels: Record<string, string> = {
+  recientes: "Más recientes",
+  "precio-asc": "Precio: menor a mayor",
+  "precio-desc": "Precio: mayor a menor",
+  nombre: "Nombre (A-Z)",
+};
+
+/**
+ * Arma una URL de /productos conservando los parámetros actuales.
+ * Omite los valores por defecto y vuelve a la página 1 si cambia un filtro.
+ */
+function buildUrl(changes: Partial<Record<keyof typeof current, string | number>>) {
+  const next = { ...current, ...changes };
+  if (!("pagina" in changes)) next.pagina = 1;
+  const url = new URLSearchParams();
+  if (next.categoria) url.set("categoria", String(next.categoria));
+  if (next.q) url.set("q", String(next.q));
+  if (next.orden && next.orden !== "recientes") url.set("orden", String(next.orden));
+  if (Number(next.pagina) > 1) url.set("pagina", String(next.pagina));
+  const qs = url.toString();
+  return qs ? `/productos?${qs}` : "/productos";
+}
+
+let result: ProductPage | null = null;
+let categories: CategoryWithCount[] = [];
+let failed = false;
+
+try {
+  [result, categories] = await Promise.all([
+    listProducts({ category: current.categoria, q: current.q, sort: current.orden, page: current.pagina }),
+    listCategories(),
+  ]);
+} catch {
+  failed = true;
+  Astro.response.status = 503;
+}
+
+const categoryNames = new Map(categories.map((c) => [c.slug, c.name]));
+const hasFilters = Boolean(current.categoria || current.q);
+const outOfRange = result !== null && result.items.length === 0 && result.total > 0;
+const from = result ? (result.page - 1) * result.pageSize + 1 : 0;
+const to = result ? from + result.items.length - 1 : 0;
+const pages = result ? Array.from({ length: result.totalPages }, (_, i) => i + 1) : [];
+---
+
+<Base
+  title="Catálogo"
+  description="Velas artesanales, productos de belleza natural, insumos para velas y moldes impresos en 3D."
+  canonical="/productos"
+>
+  <div class="container section catalog">
+    <header class="stack catalog__intro">
+      <h1>Catálogo</h1>
+      <p class="lead">Velas, productos de belleza, insumos y moldes para crear las tuyas.</p>
+    </header>
+
+    {
+      failed ? (
+        <div class="stack catalog__message" role="alert">
+          <h2 class="catalog__message-title">No pudimos cargar el catálogo</h2>
+          <p>Intenta de nuevo en unos minutos. Si el problema sigue, escríbenos desde la página de contacto.</p>
+          <p>
+            <a class="btn btn--secondary" href={Astro.url.pathname + Astro.url.search}>
+              Volver a intentar
+            </a>
+          </p>
+        </div>
+      ) : (
+        <>
+          <div class="toolbar">
+            <nav aria-label="Categorías">
+              <ul class="cluster toolbar__filters">
+                <li>
+                  <a
+                    class={`btn ${current.categoria ? "btn--secondary" : "btn--primary"}`}
+                    href={buildUrl({ categoria: "" })}
+                    aria-current={current.categoria ? undefined : "page"}
+                  >
+                    Todos
+                  </a>
+                </li>
+                {categories.map((c) => (
+                  <li>
+                    <a
+                      class={`btn ${current.categoria === c.slug ? "btn--primary" : "btn--secondary"}`}
+                      href={buildUrl({ categoria: c.slug })}
+                      aria-current={current.categoria === c.slug ? "page" : undefined}
+                    >
+                      {c.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <form class="toolbar__form" method="get" action="/productos" role="search">
+              {current.categoria && <input type="hidden" name="categoria" value={current.categoria} />}
+              <div class="field">
+                <label for="catalog-q">Buscar</label>
+                <input
+                  class="input"
+                  id="catalog-q"
+                  type="search"
+                  name="q"
+                  value={result?.q ?? ""}
+                  placeholder="Buscar productos"
+                  maxlength="80"
+                />
+              </div>
+              <div class="field">
+                <label for="catalog-orden">Ordenar por</label>
+                <select class="select" id="catalog-orden" name="orden">
+                  {Object.entries(sortLabels).map(([value, label]) => (
+                    <option value={value} selected={value === current.orden}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button class="btn btn--secondary" type="submit">Aplicar</button>
+            </form>
+          </div>
+
+          {result && result.items.length > 0 ? (
+            <>
+              <p class="small muted catalog__count" aria-live="polite">
+                Mostrando {from}–{to} de {result.total} {result.total === 1 ? "producto" : "productos"}
+              </p>
+              <ul class="product-grid catalog__grid">
+                {result.items.map((product) => (
+                  <li>
+                    <ProductCard
+                      product={product}
+                      categoryName={product.category_slug ? categoryNames.get(product.category_slug) : undefined}
+                    />
+                  </li>
+                ))}
+              </ul>
+
+              {result.totalPages > 1 && (
+                <nav class="pagination" aria-label="Paginación">
+                  <ul class="cluster">
+                    {result.page > 1 && (
+                      <li>
+                        <a href={buildUrl({ pagina: result.page - 1 })} rel="prev">
+                          Anterior
+                        </a>
+                      </li>
+                    )}
+                    {pages.map((n) => (
+                      <li>
+                        <a
+                          href={buildUrl({ pagina: n })}
+                          aria-current={n === result!.page ? "page" : undefined}
+                          aria-label={`Página ${n}`}
+                        >
+                          {n}
+                        </a>
+                      </li>
+                    ))}
+                    {result.page < result.totalPages && (
+                      <li>
+                        <a href={buildUrl({ pagina: result.page + 1 })} rel="next">
+                          Siguiente
+                        </a>
+                      </li>
+                    )}
+                  </ul>
+                </nav>
+              )}
+            </>
+          ) : (
+            <div class="stack catalog__message">
+              {outOfRange ? (
+                <>
+                  <h2 class="catalog__message-title">Esta página no existe</h2>
+                  <p>Hay {result!.total} productos con estos filtros, pero no llegan hasta la página {current.pagina}.</p>
+                  <p>
+                    <a class="btn btn--secondary" href={buildUrl({ pagina: 1 })}>
+                      Ir a la primera página
+                    </a>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 class="catalog__message-title">
+                    {result?.q ? `No encontramos productos para “${result.q}”` : "No encontramos productos con estos filtros"}
+                  </h2>
+                  <p>Prueba con otra palabra o revisa todas las categorías.</p>
+                  {hasFilters && (
+                    <p>
+                      <a class="btn btn--secondary" href="/productos">
+                        Ver todos los productos
+                      </a>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )
+    }
+  </div>
+</Base>
+
+<style>
+  /* Espacio entre encabezado y h1 como en el mockup (96 px); en móvil, el de sección (64 px) */
+  .catalog {
+    padding-top: min(var(--section-y), var(--space-9));
+  }
+  .catalog__intro {
+    --stack-gap: var(--space-5);
+    margin-bottom: var(--space-8);
+  }
+
+  /* Barra de filtros: línea arriba y abajo, como en el mockup.
+     Categorías a la izquierda y formulario a la derecha en la misma fila;
+     si no caben, el formulario pasa abajo, alineado a la derecha. */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-5);
+    padding-block: var(--space-5);
+    border-block: 1px solid var(--color-border-subtle);
+  }
+  .toolbar ul {
+    list-style: none;
+    padding: 0;
+  }
+  .toolbar__filters {
+    gap: var(--space-2);
+  }
+  .toolbar__filters .btn {
+    padding-inline: var(--space-5);
+  }
+  .toolbar__form {
+    display: flex;
+    align-items: end;
+    gap: var(--space-3);
+    margin-left: auto;
+  }
+  .toolbar__form .field {
+    width: calc(var(--space-10) + var(--space-8)); /* 192 px */
+  }
+  /* Misma altura (48 px) para campo, selector y botón */
+  .toolbar__form .input,
+  .toolbar__form .select,
+  .toolbar__form .btn {
+    block-size: var(--space-7);
+    min-height: 0;
+    padding-block: 0;
+  }
+
+  /* Móvil: el formulario va debajo de las categorías, a todo el ancho */
+  @media (max-width: 767px) {
+    .toolbar__form {
+      width: 100%;
+      margin-left: 0;
+      flex-wrap: wrap;
+    }
+    .toolbar__form .field:first-of-type {
+      flex: 1 1 100%;
+    }
+    .toolbar__form .field:not(:first-of-type) {
+      flex: 1 1 0;
+      width: auto;
+    }
+  }
+
+  .catalog__count {
+    margin-block: var(--space-5);
+  }
+  .catalog__grid {
+    list-style: none;
+    padding: 0;
+  }
+
+  .catalog__message {
+    padding-block: var(--space-8);
+  }
+  .catalog__message-title {
+    font-size: var(--text-h3);
+    line-height: var(--leading-h3);
+  }
+
+  .pagination {
+    margin-top: var(--space-8);
+  }
+  .pagination ul {
+    list-style: none;
+    padding: 0;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+  .pagination a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--space-7);
+    min-height: var(--space-7);
+    padding-inline: var(--space-3);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+  }
+  .pagination a:hover {
+    background: var(--color-surface-tint);
+  }
+  .pagination a[aria-current="page"] {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+</style>
