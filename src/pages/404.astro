@@ -1,0 +1,10 @@
+---
+import Base from "../layouts/Base.astro";
+import NotFound from "../components/NotFound.astro";
+
+Astro.response.status = 404;
+---
+
+<Base title="Página no encontrada" description="La página que buscas no existe." noindex>
+  <NotFound />
+</Base>

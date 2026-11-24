@@ -163,6 +163,7 @@ import "@fontsource/cormorant-garamond/600.css";
 - Botones con el verbo exacto de lo que ocurre: "Agregar al carrito", "Pagar", "Enviar solicitud".
 - Mismo nombre para la misma acción en todo el flujo (si el botón dice "Agregar al carrito", el aviso dice "Agregado al carrito").
 - Errores: dicen qué pasó y cómo arreglarlo, sin disculpas ni dramatismo.
+- Estado de stock, siempre con texto (no solo color): "Disponible" (4 piezas o más), "Últimas piezas" (de 1 a 3, con "quedan N") y "Agotado" (0, insignia `.badge--muted`).
 - Cifras como "500+ clientes" o "100 % satisfacción" solo si son reales y comprobables.
 
 ## 10. Lista de verificación antes de publicar una pantalla

@@ -1,0 +1,22 @@
+---
+// Contenido de "página no encontrada". Quien lo usa fija el estado 404.
+---
+
+<div class="container section stack not-found">
+  <h1>No encontramos esta página</h1>
+  <p class="lead">Puede que el producto ya no esté disponible o que el enlace tenga un error.</p>
+  <p>
+    <a class="btn btn--primary" href="/productos">Ir al catálogo</a>
+  </p>
+</div>
+
+<style>
+  .not-found {
+    --stack-gap: var(--space-5);
+    padding-top: min(var(--section-y), var(--space-9));
+  }
+  .not-found h1 {
+    font-size: var(--text-h2);
+    line-height: var(--leading-h2);
+  }
+</style>

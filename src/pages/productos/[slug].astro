@@ -1,0 +1,497 @@
+---
+import Base from "../../layouts/Base.astro";
+import NotFound from "../../components/NotFound.astro";
+import { formatPrice } from "../../components/formatPrice";
+import { getProductBySlug, type ProductDetail, type ProductVariant } from "../../lib/products";
+
+/** "Últimas piezas" de 1 a LOW_STOCK_MAX (docs/DESIGN_SYSTEM.md, sección 9). */
+const LOW_STOCK_MAX = 3;
+
+let product: ProductDetail | null = null;
+let failed = false;
+try {
+  product = await getProductBySlug(Astro.params.slug);
+} catch {
+  failed = true;
+}
+
+if (failed) Astro.response.status = 503;
+else if (!product) Astro.response.status = 404;
+
+// ---------- Variante elegida: ?variante=SKU, o la primera con stock ----------
+let variant: ProductVariant | null = null;
+if (product) {
+  const requested = Astro.url.searchParams.get("variante");
+  variant =
+    product.variants.find((v) => v.sku === requested) ??
+    product.variants.find((v) => v.stock > 0) ??
+    product.variants[0];
+}
+
+// ---------- Stock ----------
+const stockState = !variant
+  ? null
+  : variant.stock <= 0
+    ? { key: "out", label: "Agotado" }
+    : variant.stock <= LOW_STOCK_MAX
+      ? { key: "low", label: "Últimas piezas", detail: `quedan ${variant.stock}` }
+      : { key: "ok", label: "Disponible" };
+
+// ---------- Precio ----------
+const onSale = variant?.compare_at_price != null && variant.compare_at_price > variant.price;
+
+// ---------- Imágenes: primero las de la variante elegida ----------
+const images = product
+  ? [...product.images].sort((a, b) => Number(b.variant_id === variant?.id) - Number(a.variant_id === variant?.id))
+  : [];
+const [mainImage, ...restImages] = images;
+
+// ---------- Mayoreo: filas "Piezas" / "Precio por pieza" ----------
+const tierRows: { range: string; price: number }[] = [];
+if (variant && variant.wholesale_tiers.length > 0) {
+  const tiers = variant.wholesale_tiers;
+  const first = tiers[0].min_qty;
+  tierRows.push({ range: first - 1 === 1 ? "1" : `1 a ${first - 1}`, price: variant.price });
+  tiers.forEach((t, i) => {
+    const next = tiers[i + 1];
+    const range = next
+      ? next.min_qty - 1 === t.min_qty
+        ? `${t.min_qty}`
+        : `${t.min_qty} a ${next.min_qty - 1}`
+      : `${t.min_qty} o más`;
+    tierRows.push({ range, price: t.unit_price });
+  });
+}
+
+// ---------- SEO ----------
+const canonical = product ? `/productos/${product.slug}` : undefined;
+const title = product ? product.seo_title || product.name : failed ? "Catálogo no disponible" : "Página no encontrada";
+const description = product
+  ? product.seo_description ||
+    product.short_description ||
+    `${product.name}, de Velas Starlight. Productos artesanales hechos en pequeños lotes.`
+  : "La página que buscas no existe.";
+
+const productUrl = product ? new URL(`/productos/${product.slug}`, Astro.url.origin) : null;
+const jsonLd =
+  product && productUrl
+    ? JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: product.name,
+        description: product.short_description ?? product.description ?? undefined,
+        image: product.images.map((i) => i.url),
+        brand: { "@type": "Brand", name: "Velas Starlight" },
+        category: product.category?.name,
+        url: productUrl.href,
+        offers: product.variants.map((v) => ({
+          "@type": "Offer",
+          sku: v.sku,
+          name: v.name,
+          price: v.price.toFixed(2),
+          priceCurrency: "MXN",
+          availability: v.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          url: `${productUrl.href}?variante=${encodeURIComponent(v.sku)}`,
+        })),
+      }).replace(/</g, "\\u003c")
+    : null;
+---
+
+<Base title={title} description={description} canonical={canonical} noindex={!product}>
+  {jsonLd && <script slot="head" type="application/ld+json" is:inline set:html={jsonLd} />}
+
+  {
+    failed ? (
+      <div class="container section stack detail-message" role="alert">
+        <h1>No pudimos cargar este producto</h1>
+        <p class="lead">Intenta de nuevo en unos minutos. Si el problema sigue, escríbenos desde la página de contacto.</p>
+        <p>
+          <a class="btn btn--secondary" href={Astro.url.pathname + Astro.url.search}>
+            Volver a intentar
+          </a>
+        </p>
+      </div>
+    ) : !product || !variant ? (
+      <NotFound />
+    ) : (
+      <div class="container section detail-page">
+        <nav class="breadcrumb" aria-label="Migas de pan">
+          <ol>
+            <li>
+              <a href="/productos">Catálogo</a>
+            </li>
+            {product.category && (
+              <li>
+                <a href={`/productos?categoria=${encodeURIComponent(product.category.slug)}`}>{product.category.name}</a>
+              </li>
+            )}
+            <li aria-current="page">{product.name}</li>
+          </ol>
+        </nav>
+
+        <div class="detail">
+          {/* ---------- Galería ---------- */}
+          <div class="gallery">
+            <div class="gallery__main">
+              {mainImage ? (
+                <img
+                  src={mainImage.url}
+                  alt={mainImage.alt ?? product.name}
+                  width="800"
+                  height="1000"
+                  fetchpriority="high"
+                />
+              ) : (
+                <div class="gallery__placeholder" aria-hidden="true" />
+              )}
+            </div>
+            {restImages.length > 0 && (
+              <ul class="gallery__grid">
+                {restImages.map((img) => (
+                  <li>
+                    <img
+                      src={img.url}
+                      alt={img.alt ?? product!.name}
+                      width="800"
+                      height="1000"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* ---------- Información ---------- */}
+          <div class="info">
+            <div class="info__heading">
+              {product.category && <p class="info__category">{product.category.name}</p>}
+              <h1>{product.name}</h1>
+            </div>
+
+            <p class="info__price">
+              {onSale ? (
+                <>
+                  <span class="visually-hidden">Precio rebajado:</span>
+                  <span class="price price--sale">{formatPrice(variant.price)}</span>
+                  <span class="visually-hidden">, antes</span>
+                  <s class="price price--compare">{formatPrice(variant.compare_at_price!)}</s>
+                </>
+              ) : (
+                <span class="price">{formatPrice(variant.price)}</span>
+              )}
+            </p>
+
+            {product.short_description && <p class="info__summary">{product.short_description}</p>}
+
+            {product.variants.length > 1 && (
+              <nav class="variants" aria-labelledby="variants-label">
+                <p id="variants-label" class="variants__label">Presentación</p>
+                <ul class="cluster">
+                  {product.variants.map((v) => (
+                    <li>
+                      <a
+                        class="btn btn--secondary variants__option"
+                        href={`?variante=${encodeURIComponent(v.sku)}`}
+                        aria-current={v.id === variant!.id ? "true" : undefined}
+                      >
+                        {v.name}
+                        {v.stock <= 0 && <span class="variants__note">(agotado)</span>}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+
+            <dl class="facts">
+              <div>
+                <dt>Disponibilidad</dt>
+                <dd>
+                  {stockState!.key === "out" ? (
+                    <span class="badge badge--muted">Agotado</span>
+                  ) : (
+                    <span class={`stock stock--${stockState!.key}`}>
+                      {stockState!.label}
+                      {stockState!.detail && <span class="stock__detail">({stockState!.detail})</span>}
+                    </span>
+                  )}
+                </dd>
+              </div>
+              {variant.weight_grams != null && (
+                <div>
+                  <dt>Peso para envío</dt>
+                  <dd>{variant.weight_grams} g</dd>
+                </div>
+              )}
+              {product.variants.length === 1 && (
+                <div>
+                  <dt>Presentación</dt>
+                  <dd>{variant.name}</dd>
+                </div>
+              )}
+            </dl>
+
+            <div class="info__action">
+              <button class="btn btn--primary btn--block" type="button" disabled aria-describedby="nota-cotizacion">
+                Agregar a la cotización
+              </button>
+              <p id="nota-cotizacion" class="field__hint">Muy pronto podrás armar tu cotización desde aquí.</p>
+            </div>
+
+            {tierRows.length > 0 && (
+              <section class="wholesale" aria-labelledby="wholesale-title">
+                <h2 id="wholesale-title" class="info__subtitle">
+                  Compra más, paga menos
+                </h2>
+                <table class="wholesale__table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Piezas</th>
+                      <th scope="col">Precio por pieza</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tierRows.map((row) => (
+                      <tr>
+                        <td>{row.range}</td>
+                        <td class="price">{formatPrice(row.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
+
+            {product.description && (
+              <section class="description" aria-labelledby="description-title">
+                <h2 id="description-title" class="info__subtitle">
+                  Descripción
+                </h2>
+                <p class="description__text">{product.description}</p>
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+</Base>
+
+<style>
+  .detail-page,
+  .detail-message {
+    padding-top: min(var(--section-y), var(--space-8));
+  }
+  .detail-message {
+    --stack-gap: var(--space-5);
+  }
+  .detail-message h1 {
+    font-size: var(--text-h2);
+    line-height: var(--leading-h2);
+  }
+
+  /* ---------- Migas ---------- */
+  .breadcrumb {
+    margin-bottom: var(--space-6);
+    font-size: var(--text-sm);
+    line-height: var(--leading-ui);
+  }
+  .breadcrumb ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+    padding: 0;
+  }
+  .breadcrumb li + li::before {
+    content: "/";
+    margin-right: var(--space-2);
+    color: var(--color-text-muted);
+  }
+  .breadcrumb [aria-current="page"] {
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- Rejilla general ---------- */
+  .detail {
+    display: grid;
+    gap: var(--space-7);
+  }
+  @media (min-width: 1024px) {
+    .detail {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: var(--space-8);
+      align-items: start;
+    }
+  }
+
+  /* ---------- Galería ---------- */
+  .gallery {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .gallery__main,
+  .gallery__grid li {
+    aspect-ratio: 4 / 5;
+    border-radius: var(--radius-media);
+    overflow: hidden;
+    background: var(--color-surface-tint);
+  }
+  .gallery img,
+  .gallery__placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .gallery__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    list-style: none;
+    padding: 0;
+  }
+
+  /* ---------- Información ---------- */
+  .info {
+    display: grid;
+    gap: var(--space-5);
+    align-content: start;
+  }
+  .info__heading {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .info__category {
+    font-size: var(--text-sm);
+    line-height: var(--leading-ui);
+    color: var(--color-text-muted);
+  }
+  /* Nombre en detalle: tamaño h3 (DESIGN_SYSTEM.md, sección 3) */
+  .info h1 {
+    font-size: var(--text-h3);
+    line-height: var(--leading-h3);
+  }
+  .info__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-3);
+    font-size: var(--text-h4);
+    line-height: var(--leading-h4);
+  }
+  .info__summary {
+    color: var(--color-text-secondary);
+  }
+  .info__subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-h4);
+    line-height: var(--leading-h4);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-body);
+  }
+
+  /* ---------- Variantes ---------- */
+  .variants {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .variants__label {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-heading);
+  }
+  .variants ul {
+    list-style: none;
+    padding: 0;
+    gap: var(--space-2);
+  }
+  .variants__option {
+    padding-inline: var(--space-5);
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+  .variants__option[aria-current="true"] {
+    background: var(--color-surface-tint);
+    border-color: var(--color-primary);
+    color: var(--color-heading);
+  }
+  .variants__note {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- Datos: disponibilidad, peso ---------- */
+  .facts {
+    display: grid;
+    gap: var(--space-2);
+    padding-block: var(--space-4);
+    border-block: var(--border);
+  }
+  .facts div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+    line-height: var(--leading-ui);
+  }
+  .facts dt {
+    color: var(--color-text-secondary);
+  }
+  .facts dd {
+    margin: 0;
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+  .stock--ok {
+    color: var(--success-700);
+  }
+  .stock--low {
+    color: var(--warning-700);
+  }
+  .stock__detail {
+    margin-left: var(--space-1);
+    font-weight: var(--weight-regular);
+  }
+
+  .info__action {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  /* ---------- Mayoreo ---------- */
+  .wholesale {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .wholesale__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    line-height: var(--leading-ui);
+  }
+  .wholesale__table th,
+  .wholesale__table td {
+    padding: var(--space-3) 0;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .wholesale__table th {
+    font-weight: var(--weight-medium);
+    color: var(--color-text-secondary);
+  }
+  .wholesale__table th:last-child,
+  .wholesale__table td:last-child {
+    text-align: right;
+  }
+
+  /* ---------- Descripción: texto plano, respeta saltos de línea ---------- */
+  .description {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .description__text {
+    white-space: pre-line;
+  }
+</style>
