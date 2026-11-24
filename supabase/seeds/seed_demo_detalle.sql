@@ -12,6 +12,10 @@
 -- 1 y 2 no se pueden marcar (sus tablas no tienen attributes);
 -- se deshacen por SKU (ver el final del archivo).
 --
+-- CUIDADO: los 8 productos de ejemplo del catálogo TAMBIÉN tienen
+-- {"demo":"true"}. Para deshacer este seed se borra por slug, nunca con
+-- "where attributes->>'demo' = 'true'", porque eso vaciaría el catálogo.
+--
 -- Se puede ejecutar más de una vez sin duplicar datos.
 -- =====================================================================
 
@@ -64,15 +68,15 @@ commit;
 -- Comprobación rápida (opcional):
 -- select sku, price, compare_at_price from public.product_variants where sku in ('VSL-LAV-200','VSL-LAV-350');
 -- select v.sku, t.min_qty, t.unit_price from public.wholesale_tiers t join public.product_variants v on v.id = t.variant_id;
--- select slug, is_active from public.products where attributes->>'demo' = 'true';
+-- select slug, is_active from public.products where slug in ('demo-vela-inactiva', 'demo-sin-variantes');
 -- select count(*) from public.catalog_products;   -- debe seguir en 8
 
 -- =====================================================================
 -- DESHACER (descomentar y ejecutar para quitar todo lo anterior)
 -- =====================================================================
 -- begin;
--- -- 3 y 4: borra los productos demo; sus variantes se borran en cascada
--- delete from public.products where attributes->>'demo' = 'true';
+-- -- 3 y 4: borra SOLO estos dos productos (por slug); sus variantes se borran en cascada
+-- delete from public.products where slug in ('demo-vela-inactiva', 'demo-sin-variantes');
 -- -- 2: quita la rebaja
 -- update public.product_variants set compare_at_price = null where sku = 'VSL-LAV-350';
 -- -- 1: quita el escalón de mayoreo
