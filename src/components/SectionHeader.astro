@@ -1,0 +1,31 @@
+---
+/** Encabezado de sección: h2 a la izquierda y enlace "Ver todo…" a la derecha. */
+interface Props {
+  title: string;
+  /** id del h2, para `aria-labelledby` de la sección. */
+  id: string;
+  linkHref?: string;
+  linkLabel?: string;
+}
+
+const { title, id, linkHref, linkLabel } = Astro.props;
+---
+
+<div class="section-header">
+  <h2 id={id}>{title}</h2>
+  {linkHref && linkLabel && <a class="link-quiet" href={linkHref}>{linkLabel}</a>}
+</div>
+
+<style>
+  .section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-5);
+    margin-bottom: var(--space-7);
+  }
+  .section-header a {
+    white-space: nowrap;
+  }
+</style>

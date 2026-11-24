@@ -6,9 +6,13 @@ interface Props {
   product: CatalogProduct;
   /** Nombre visible de la categoría ("Moldes 3D"). */
   categoryName?: string;
+  /** Nivel del título del producto. Por defecto 2. */
+  headingLevel?: 2 | 3;
 }
 
-const { product, categoryName } = Astro.props;
+const { product, categoryName, headingLevel = 2 } = Astro.props;
+// h2 bajo el h1 del catálogo; h3 cuando la tarjeta va dentro de una sección con h2 (inicio).
+const Heading = headingLevel === 3 ? "h3" : "h2";
 
 const onSale = product.compare_at_price != null && product.compare_at_price > product.min_price;
 
@@ -51,7 +55,7 @@ const badges = [
     </div>
     <div class="product-card__body">
       {categoryName && <p class="product-card__category">{categoryName}</p>}
-      <h2 class="product-card__name">{product.name}</h2>
+      <Heading class="product-card__name">{product.name}</Heading>
       <p class="product-card__price">
         {
           onSale ? (

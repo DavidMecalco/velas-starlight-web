@@ -1,25 +1,311 @@
 ---
-import "@fontsource-variable/dm-sans";
-import "@fontsource/cormorant-garamond/500.css";
-import "@fontsource/cormorant-garamond/600.css";
-import "../styles/tokens.css";
-import "../styles/base.css";
+import Base from "../layouts/Base.astro";
+import CategoryCard from "../components/CategoryCard.astro";
+import PhotoSlot from "../components/PhotoSlot.astro";
+import ProductCard from "../components/ProductCard.astro";
+import SectionHeader from "../components/SectionHeader.astro";
+import { loadFavorites } from "../components/catalog";
+import { getCategoryIntro } from "../data/category-intros";
+import { listCategories, type CategoryWithCount } from "../lib/products";
+
+// Si Supabase falla, el inicio responde igual y solo oculta categorías y favoritos.
+let categories: CategoryWithCount[] = [];
+try {
+  categories = await listCategories();
+} catch {
+  categories = [];
+}
+const favorites = await loadFavorites(4);
+const categoryNames = new Map(categories.map((c) => [c.slug, c.name]));
+
+const steps = [
+  {
+    title: "Elige tus productos",
+    text: "Agrégalos a tu cotización desde el catálogo, con la presentación y la cantidad que necesites.",
+  },
+  { title: "Recibe tu cotización", text: "Te enviamos un PDF con precios y envío, por correo o por WhatsApp." },
+  { title: "Confirma y paga al recibir", text: "Coordinamos la entrega contigo y pagas contra entrega." },
+];
 ---
 
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Velas Starlight</title>
-  </head>
-  <body>
-    <main class="container section stack">
-  <h1>Velas Starlight</h1>
-  <p class="lead">Prueba del sistema de diseño.</p>
-  <div class="cluster">
-    <a class="btn btn--primary" href="#">Agregar al carrito</a>
-    <a class="btn btn--secondary" href="#">Ver detalles</a>
-  </div>
-</main>
-  </body>
-</html>
+<Base
+  title="Velas Starlight"
+  description="Velas de soya y de parafina, productos de belleza natural, e insumos y moldes para hacer las tuyas. Todo elaborado en pequeños lotes."
+  canonical="/"
+>
+  {/* ---------- Hero ---------- */}
+  <section class="hero">
+    <div class="container hero__inner">
+      <div class="hero__text">
+        <h1>Luz suave, <br />hecha a mano</h1>
+        <p class="lead">
+          Velas de soya y de parafina, productos de belleza natural, e insumos y moldes para que hagas las tuyas. Todo
+          elaborado en pequeños lotes.
+        </p>
+        <div class="cluster hero__actions">
+          {/* Única acción primaria de la página. */}
+          <a class="btn btn--primary" href="/productos">Ver el catálogo</a>
+          <a class="btn btn--secondary" href="/eventos-y-mayoreo">Cotizar para eventos</a>
+        </div>
+      </div>
+      {/* Foto pendiente: ambiente cálido con velas encendidas, luz natural, fondo neutro. */}
+      <PhotoSlot
+        class="hero__photo"
+        alt="Velas encendidas con luz natural sobre un fondo neutro"
+        width={800}
+        height={1000}
+        priority
+      />
+    </div>
+  </section>
+
+  {/* ---------- Explora por categoría ---------- */}
+  {
+    categories.length > 0 && (
+      <section class="home-section" aria-labelledby="categorias-title">
+        <div class="container">
+          <SectionHeader
+            id="categorias-title"
+            title="Explora por categoría"
+            linkHref="/productos"
+            linkLabel="Ver todo el catálogo"
+          />
+          <ul class="category-grid">
+            {categories.map((c) => (
+              <li>
+                <CategoryCard slug={c.slug} name={c.name} summary={getCategoryIntro(c.slug, c.name).summary} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
+  }
+
+  {/* ---------- Los favoritos: destacados (is_featured) o, si no hay, los más recientes ---------- */}
+  {
+    favorites.length > 0 && (
+      <section class="home-section" aria-labelledby="favoritos-title">
+        <div class="container">
+          <SectionHeader id="favoritos-title" title="Los favoritos" linkHref="/productos" linkLabel="Ver todo el catálogo" />
+          <ul class="product-grid home-list">
+            {favorites.map((product) => (
+              <li>
+                <ProductCard
+                  product={product}
+                  headingLevel={3}
+                  categoryName={product.category_slug ? categoryNames.get(product.category_slug) : undefined}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
+  }
+
+  {/* ---------- Cómo pedir ---------- */}
+  <section class="section section--alt" aria-labelledby="como-pedir-title">
+    <div class="container">
+      <h2 id="como-pedir-title" class="steps__title">Cómo pedir</h2>
+      <ol class="steps" role="list">
+        {
+          steps.map((step, i) => (
+            <li class="step">
+              <span class="step__number" aria-hidden="true">
+                {i + 1}
+              </span>
+              <h3 class="step__title">
+                <span class="visually-hidden">Paso {i + 1}: </span>
+                {step.title}
+              </h3>
+              <p class="step__text">{step.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  {/* ---------- Hecho a mano ---------- */}
+  <section class="section" aria-labelledby="historia-title">
+    <div class="container story">
+      {/* Foto pendiente: manos vertiendo cera o mesa de trabajo del taller. */}
+      <PhotoSlot alt="Manos vertiendo cera en el taller de Velas Starlight" width={800} height={1000} />
+      <div class="story__text">
+        <h2 id="historia-title">Hecho a mano, en pequeños lotes</h2>
+        <p class="lead">
+          En Velas Starlight elaboramos velas de soya y de parafina, y también productos de belleza: jabones artesanales,
+          cremas, shampoos y mascarillas, con fragancias suaves.
+        </p>
+        <p class="lead">
+          Además vendemos insumos y moldes impresos en 3D, para quienes quieren hacer sus propias velas en casa.
+        </p>
+        <p>
+          <a class="link-quiet" href="/nosotros">Conoce nuestra historia</a>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {/* ---------- Eventos, bodas y mayoreo ---------- */}
+  <section class="events" aria-labelledby="eventos-title">
+    <div class="container events__inner">
+      <div class="events__text">
+        <h2 id="eventos-title">Velas para eventos, bodas y mayoreo</h2>
+        <p>Armamos pedidos grandes y personalizados, con descuento por volumen.</p>
+      </div>
+      {/* Contorno marfil, no relleno: la única acción primaria es "Ver el catálogo". */}
+      <a class="btn events__button" href="/eventos-y-mayoreo">Solicitar cotización</a>
+    </div>
+  </section>
+
+  {
+    /*
+     * "Del blog": sección retirada a propósito. El contenido del mockup era
+     * inventado (títulos, resúmenes y tiempos de lectura). Volverá cuando exista
+     * el blog y SOLO si hay artículos reales publicados: si no hay ninguno, la
+     * sección no se muestra. El enlace "Blog" del menú se queda y da 404 hasta entonces.
+     */
+  }
+</Base>
+
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    padding-top: min(var(--section-y), var(--space-9));
+    padding-bottom: var(--section-y);
+  }
+  .hero__inner {
+    display: grid;
+    gap: var(--space-7);
+    align-items: center;
+  }
+  .hero__text {
+    display: grid;
+    gap: var(--space-6);
+  }
+  .hero__actions {
+    gap: var(--space-4);
+  }
+  @media (min-width: 1024px) {
+    .hero__inner {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: var(--space-8);
+    }
+  }
+
+  /* ---------- Secciones con listado ---------- */
+  .home-section {
+    padding-bottom: var(--section-y);
+  }
+  .category-grid,
+  .home-list {
+    list-style: none;
+    padding: 0;
+  }
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6) var(--space-4);
+  }
+  @media (min-width: 768px) {
+    .category-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-5);
+    }
+  }
+
+  /* ---------- Cómo pedir ---------- */
+  .steps__title {
+    margin-bottom: var(--space-7);
+  }
+  .steps {
+    display: grid;
+    gap: var(--space-7);
+    list-style: none;
+    padding: 0;
+  }
+  @media (min-width: 768px) {
+    .steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .step {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+  }
+  .step__number {
+    font-family: var(--font-display);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-h2);
+    line-height: var(--leading-h2);
+    color: var(--color-primary);
+  }
+  .step__title {
+    font-family: var(--font-body);
+    font-size: var(--text-h4);
+    line-height: var(--leading-h4);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-body);
+  }
+  .step__text {
+    color: var(--color-text-secondary);
+  }
+
+  /* ---------- Hecho a mano ---------- */
+  .story {
+    display: grid;
+    gap: var(--space-7);
+    align-items: center;
+  }
+  .story__text {
+    display: grid;
+    gap: var(--space-5);
+  }
+  @media (min-width: 1024px) {
+    .story {
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: var(--space-8);
+    }
+  }
+
+  /* ---------- Eventos: fondo pino, texto marfil ---------- */
+  .events {
+    background: var(--color-primary);
+    padding-block: var(--space-8);
+  }
+  .events__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+  }
+  .events__text {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .events h2 {
+    color: var(--color-bg);
+    max-width: var(--container-narrow);
+  }
+  .events p {
+    font-size: var(--text-lead);
+    color: var(--color-surface-tint);
+  }
+  .events__button {
+    background: transparent;
+    border-color: var(--color-bg);
+    color: var(--color-bg);
+  }
+  .events__button:hover {
+    background: var(--color-primary-hover);
+    color: var(--color-bg);
+  }
+  /* El foco azul no contrasta sobre el verde: aquí el contorno es marfil. */
+  .events a:focus-visible {
+    outline-color: var(--color-bg);
+  }
+</style>

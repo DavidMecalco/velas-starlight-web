@@ -2,9 +2,11 @@
 import Logo from "./Logo.astro";
 
 const path = Astro.url.pathname;
+// "Inicio" queda en el logo. Nosotros, Blog y Contacto dan 404 hasta que existan.
 const links = [
-  { href: "/", label: "Inicio", active: path === "/" },
   { href: "/productos", label: "Productos", active: path.startsWith("/productos") || path.startsWith("/categoria") },
+  { href: "/nosotros", label: "Nosotros", active: path.startsWith("/nosotros") },
+  { href: "/blog", label: "Blog", active: path.startsWith("/blog") },
   { href: "/contacto", label: "Contacto", active: path.startsWith("/contacto") },
 ];
 // El carrito llega en la etapa 3; por ahora el contador es 0.
@@ -26,7 +28,8 @@ const cartCount = 0;
           ))
         }
       </ul>
-      <a class="cart-link" href="/carrito" aria-label={`Carrito, ${cartCount} productos`}>
+    </nav>
+    <a class="cart-link" href="/carrito" aria-label={`Carrito, ${cartCount} productos`}>
         <!-- Lucide: shopping-bag -->
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -46,7 +49,6 @@ const cartCount = 0;
         </svg>
         <span class="cart-link__count" aria-hidden="true">{cartCount}</span>
       </a>
-    </nav>
   </div>
 </header>
 
@@ -63,10 +65,9 @@ const cartCount = 0;
     gap: var(--space-3) var(--space-6);
     padding-block: var(--space-4);
   }
+  /* Escritorio: logo · navegación · carrito, con la navegación pegada al carrito */
   .site-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-6);
+    margin-left: auto;
   }
   .site-nav__list {
     display: flex;
@@ -112,11 +113,19 @@ const cartCount = 0;
     font-variant-numeric: tabular-nums;
   }
 
-  /* Móvil: la navegación baja a su propia fila, sin JavaScript */
+  /* Móvil: logo y carrito arriba; los cuatro enlaces en su propia fila, sin JavaScript */
   @media (max-width: 639px) {
+    .cart-link {
+      margin-left: auto;
+    }
     .site-nav {
+      order: 3;
       width: 100%;
+      margin-left: 0;
+    }
+    .site-nav__list {
       justify-content: space-between;
+      gap: var(--space-4);
     }
   }
 </style>

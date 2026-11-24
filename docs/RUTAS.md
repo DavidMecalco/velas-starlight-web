@@ -28,6 +28,7 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 ├── contacto                        Contacto general
 ├── eventos-y-mayoreo               Cotizaciones (eventos, bodas, mayoreo)
 ├── nosotros                        Historia de la marca
+├── blog                            Artículos (pendiente; sin fecha)
 ├── envios | devoluciones | faq     Ayuda
 ├── privacidad | terminos           Legales
 ├── iniciar-sesion                  Acceso con Google
@@ -46,7 +47,7 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 
 | Ruta | Archivo (`src/pages/`) | Propósito | Render | Datos (tablas) | Etapa |
 |---|---|---|---|---|---|
-| `/` | `index.astro` | Presentar la marca, productos destacados y accesos a categorías | Estática (se reconstruye al cambiar destacados) o SSR con caché | `products` (`is_featured`), `categories` | 1 |
+| `/` | `index.astro` | Presentar la marca, productos destacados ("Los favoritos": hasta 4 con `is_featured`; si no hay, los 4 más recientes) y accesos a categorías. Sin sección de blog hasta que haya artículos reales | SSR | `catalog_products` (`is_featured`), `categories`, `src/data/category-intros.ts` | 1 |
 | `/productos` | `productos/index.astro` | Catálogo completo con filtros, búsqueda, orden y paginación | SSR | `products`, `product_variants`, `product_images`, `categories` | 1 |
 | `/productos/[slug]` | `productos/[slug].astro` | Detalle: galería, variantes (aroma, tamaño), precio, stock, mayoreo, reseñas, botón de agregar | SSR | `products`, `product_variants`, `product_images`, `wholesale_tiers`, `reviews` | 2 |
 | `/categoria/[slug]` | `categoria/[slug].astro` | Catálogo de una categoría con su propia URL e introducción (SEO). Mismo listado que `/productos` (componente `CatalogListing`); búsqueda, orden y paginación se quedan en `/categoria/<slug>`. Categoría inexistente: 404 | SSR | `categories`, `catalog_products`, textos en `src/data/category-intros.ts` | 2 |
@@ -56,6 +57,7 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 | `/contacto` | `contacto.astro` | Datos de contacto y formulario general | Estática + endpoint | `quote_requests` | 8 |
 | `/eventos-y-mayoreo` | `eventos-y-mayoreo.astro` | Solicitud de cotización para eventos, bodas y compras al mayoreo | Estática + endpoint | `quote_requests`, `wholesale_tiers` | 8 |
 | `/nosotros` | `nosotros.astro` | Historia, proceso artesanal, ingredientes | Estática | (ninguna) | 8 |
+| `/blog` | `blog/index.astro` | Artículos de la marca. Pendiente de definir (fuente de datos y diseño, incluido el estado sin artículos). Enlazado desde el menú; da 404 hasta que exista | Por definir | Por definir | Por definir |
 | `/envios`, `/devoluciones`, `/faq` | `envios.astro`, `devoluciones.astro`, `faq.astro` | Políticas y preguntas frecuentes | Estática | (ninguna) | 8 |
 | `/privacidad`, `/terminos` | `privacidad.astro`, `terminos.astro` | Aviso de privacidad y términos y condiciones (requeridos antes de vender) | Estática | (ninguna) | 6 |
 
@@ -116,7 +118,7 @@ Los endpoints viven en `src/pages/api/`. Los que escriben datos sensibles usan l
 
 ## 8. Navegación
 
-**Encabezado (todas las páginas):** Inicio · Productos · Contacto · cuenta (ícono) · carrito (ícono con contador).
+**Encabezado (todas las páginas):** logo (enlace a Inicio) · Productos · Nosotros · Blog · Contacto · carrito (ícono con contador). El ícono de cuenta se agrega en la etapa 5. En móvil, el logo y el carrito van en la primera fila y los cuatro enlaces en la segunda, sin JavaScript.
 Al pasar sobre "Productos" se despliegan las categorías: Velas, Belleza, Insumos, Moldes 3D.
 
 **Catálogo:** los botones de categoría de `/productos` y `/categoria/*` llevan a `/categoria/<slug>` (conservando `q` y `orden`); "Todos" lleva a `/productos`. Las migas del detalle enlazan a `/categoria/<slug>`.

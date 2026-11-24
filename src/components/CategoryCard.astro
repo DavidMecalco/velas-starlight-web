@@ -1,0 +1,48 @@
+---
+import PhotoSlot from "./PhotoSlot.astro";
+
+interface Props {
+  slug: string;
+  name: string;
+  summary: string;
+  /** Foto de la categoría (pendiente). */
+  imageSrc?: string | null;
+}
+
+const { slug, name, summary, imageSrc } = Astro.props;
+---
+
+<a class="category-card" href={`/categoria/${slug}`}>
+  {/* Decorativa: el nombre de la categoría ya está en el enlace. */}
+  <PhotoSlot src={imageSrc} alt="" width={800} height={1000} />
+  <span class="category-card__text">
+    <h3 class="category-card__name">{name}</h3>
+    <span class="category-card__summary">{summary}</span>
+  </span>
+</a>
+
+<style>
+  .category-card {
+    display: grid;
+    gap: var(--space-4);
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .category-card:hover .category-card__name {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+  }
+  .category-card__text {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .category-card__name {
+    font-size: var(--text-h3);
+    line-height: var(--leading-h3);
+  }
+  .category-card__summary {
+    font-size: var(--text-sm);
+    line-height: var(--leading-ui);
+    color: var(--color-text-secondary);
+  }
+</style>

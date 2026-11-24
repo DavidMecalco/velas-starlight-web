@@ -3,6 +3,7 @@ import {
   listProducts,
   parsePage,
   parseSort,
+  type CatalogProduct,
   type CategoryWithCount,
   type ProductPage,
   type SortOption,
@@ -54,6 +55,27 @@ export async function loadCatalog(state: CatalogState): Promise<CatalogData> {
     return { result, categories, failed: false };
   } catch {
     return { result: null, categories: [], failed: true };
+  }
+}
+
+/**
+ * Elige los favoritos del inicio: los destacados; si no hay ninguno,
+ * los más recientes, para que la sección nunca quede vacía.
+ */
+export async function chooseFavorites(
+  featured: CatalogProduct[],
+  loadRecent: () => Promise<CatalogProduct[]>,
+): Promise<CatalogProduct[]> {
+  return featured.length > 0 ? featured : loadRecent();
+}
+
+/** Favoritos del inicio (máximo `limit`). Si la base de datos falla, devuelve []. */
+export async function loadFavorites(limit = 4): Promise<CatalogProduct[]> {
+  try {
+    const { items } = await listProducts({ featured: true, limit });
+    return await chooseFavorites(items, async () => (await listProducts({ limit })).items);
+  } catch {
+    return [];
   }
 }
 
