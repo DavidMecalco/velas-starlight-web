@@ -59,21 +59,38 @@ export async function loadCatalog(state: CatalogState): Promise<CatalogData> {
 }
 
 /**
- * Elige los favoritos del inicio: los destacados; si no hay ninguno,
- * los más recientes, para que la sección nunca quede vacía.
+ * Elige los favoritos del inicio: hasta `limit` destacados y, si faltan,
+ * completa con los más recientes que no estén ya incluidos.
  */
 export async function chooseFavorites(
   featured: CatalogProduct[],
-  loadRecent: () => Promise<CatalogProduct[]>,
+  loadRecent: (count: number) => Promise<CatalogProduct[]>,
+  limit = 4,
 ): Promise<CatalogProduct[]> {
-  return featured.length > 0 ? featured : loadRecent();
+  const picked = featured.slice(0, limit);
+  if (picked.length >= limit) return picked;
+
+  // Se piden de más para poder descartar los que ya están como destacados.
+  const seen = new Set(picked.map((p) => p.id));
+  for (const product of await loadRecent(limit + picked.length)) {
+    if (picked.length >= limit) break;
+    if (!seen.has(product.id)) {
+      picked.push(product);
+      seen.add(product.id);
+    }
+  }
+  return picked;
 }
 
-/** Favoritos del inicio (máximo `limit`). Si la base de datos falla, devuelve []. */
+/**
+ * Favoritos del inicio: siempre `limit` tarjetas (si hay suficientes productos).
+ * Primero los destacados y, si faltan, se completa con los más recientes sin repetir.
+ * Si la base de datos falla, devuelve [].
+ */
 export async function loadFavorites(limit = 4): Promise<CatalogProduct[]> {
   try {
     const { items } = await listProducts({ featured: true, limit });
-    return await chooseFavorites(items, async () => (await listProducts({ limit })).items);
+    return await chooseFavorites(items, async (count) => (await listProducts({ limit: count })).items, limit);
   } catch {
     return [];
   }
