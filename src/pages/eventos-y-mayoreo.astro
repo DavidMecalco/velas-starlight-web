@@ -1,0 +1,175 @@
+---
+import Base from "../layouts/Base.astro";
+import FormField from "../components/FormField.astro";
+import InquiryForm from "../components/InquiryForm.astro";
+import InquiryLayout from "../components/InquiryLayout.astro";
+import { site } from "../config/site";
+
+const services = [
+  {
+    title: "Eventos y bodas",
+    text: "Velas para recuerdos y decoración, con aroma y presentación a elegir.",
+  },
+  {
+    title: "Regalos corporativos",
+    text: "Pedidos por cantidad para tu empresa o equipo.",
+  },
+  {
+    title: "Mayoreo de insumos",
+    text: "Cera, aditivos, fragancias y moldes con precio por volumen.",
+  },
+];
+
+// `request_type` en `inquiries` es texto libre; "corporativo" se agrega a los valores comentados en el esquema.
+const requestTypes = [
+  { value: "evento", label: "Evento" },
+  { value: "boda", label: "Boda" },
+  { value: "corporativo", label: "Regalos corporativos" },
+  { value: "mayoreo", label: "Mayoreo de insumos" },
+  { value: "general", label: "Otro" },
+];
+---
+
+<Base
+  title="Eventos y mayoreo"
+  description="Velas para bodas, eventos y regalos corporativos, e insumos por volumen. Cuéntanos qué necesitas y te enviamos una cotización."
+  canonical="/eventos-y-mayoreo"
+>
+  <InquiryLayout title="Eventos y mayoreo">
+    <Fragment slot="lead">
+      Pedidos grandes y personalizados: bodas, eventos, regalos corporativos y compra de insumos por volumen. Cuéntanos
+      qué necesitas y te enviamos una cotización.
+    </Fragment>
+
+    <ul class="services" slot="before" role="list">
+      {
+        services.map((s) => (
+          <li class="service">
+            <h2 class="service__title">{s.title}</h2>
+            <p class="service__text">{s.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <InquiryForm
+      form="eventos"
+      title="Solicitud de cotización"
+      submitLabel="Enviar solicitud"
+      successMessage="Recibimos tu solicitud. Te enviaremos la cotización al correo que nos diste."
+    >
+      <FormField
+        name="name"
+        label="Nombre o empresa"
+        autocomplete="organization"
+        maxlength={120}
+        requiredMessage="Escribe tu nombre o el de tu empresa."
+      />
+      <FormField
+        class="field--half"
+        name="email"
+        label="Correo electrónico"
+        type="email"
+        autocomplete="email"
+        maxlength={200}
+        requiredMessage="Escribe tu correo para enviarte la cotización."
+      />
+      <FormField
+        class="field--half"
+        name="phone"
+        label="Teléfono"
+        type="tel"
+        autocomplete="tel"
+        maxlength={30}
+        requiredMessage="Escribe un teléfono de contacto."
+      />
+      <FormField
+        class="field--half"
+        name="request_type"
+        label="Tipo de pedido"
+        type="select"
+        options={requestTypes}
+        requiredMessage="Elige el tipo de pedido."
+      />
+      <FormField class="field--half" name="event_date" label="Fecha del evento o de entrega" type="date" optional />
+      {/* quantity_estimate es int en la base de datos: solo números enteros. */}
+      <FormField
+        name="quantity_estimate"
+        label="Cantidad aproximada (piezas o unidades)"
+        type="number"
+        min={1}
+        requiredMessage="Escribe una cantidad aproximada."
+        invalidMessage="Escribe un número entero mayor que cero."
+      />
+      <FormField
+        name="message"
+        label="Cuéntanos tu idea"
+        type="textarea"
+        maxlength={3000}
+        requiredMessage="Cuéntanos qué necesitas."
+      />
+      <Fragment slot="note">
+        Te respondemos con una cotización{site.tiempoRespuesta && <> en {site.tiempoRespuesta}</>}. No pagas nada en este
+        paso.
+      </Fragment>
+    </InquiryForm>
+
+    <Fragment slot="aside">
+      <dl>
+        <div>
+          <dt>Cómo funciona</dt>
+          <dd>
+            Revisamos tu solicitud, te enviamos una cotización en PDF y, si la aceptas, coordinamos la entrega y el pago
+            contra entrega.
+          </dd>
+        </div>
+        {
+          site.anticipacionEventos && (
+            <div>
+              <dt>Anticipación recomendada</dt>
+              <dd>{site.anticipacionEventos} para pedidos de evento.</dd>
+            </div>
+          )
+        }
+        {
+          site.pedidoMinimo && (
+            <div>
+              <dt>Pedido mínimo</dt>
+              <dd>{site.pedidoMinimo}</dd>
+            </div>
+          )
+        }
+      </dl>
+    </Fragment>
+  </InquiryLayout>
+</Base>
+
+<style>
+  .services {
+    display: grid;
+    gap: var(--space-6);
+    list-style: none;
+    padding: 0;
+  }
+  @media (min-width: 768px) {
+    .services {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-5);
+    }
+  }
+  .service {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    padding-top: var(--space-5);
+    border-top: var(--border);
+  }
+  /* Cormorant solo por encima de 22 px: --text-card va de 22 a 24. */
+  .service__title {
+    font-size: var(--text-card);
+    line-height: var(--leading-h3);
+  }
+  .service__text {
+    color: var(--color-text-secondary);
+  }
+</style>

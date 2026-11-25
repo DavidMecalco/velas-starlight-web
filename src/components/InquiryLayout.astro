@@ -1,0 +1,101 @@
+---
+/**
+ * Estructura de /contacto y /eventos-y-mayoreo: título, entrada, bloque
+ * opcional antes del formulario y, a la derecha, la columna de datos.
+ * Si la página no pasa el slot "aside", el formulario ocupa el ancho angosto.
+ */
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+// Se renderiza antes para saber si quedó vacío: un slot condicional cuenta como
+// presente aunque su condición sea falsa.
+const aside = Astro.slots.has("aside") ? (await Astro.slots.render("aside")).trim() : "";
+const hasAside = aside !== "";
+const hasBefore = Astro.slots.has("before");
+---
+
+<div class="container inquiry-page">
+  <header class="inquiry-page__header">
+    <h1>{title}</h1>
+    <p class="lead"><slot name="lead" /></p>
+  </header>
+
+  {
+    hasBefore && (
+      <div class="inquiry-page__before">
+        <slot name="before" />
+      </div>
+    )
+  }
+
+  <div class:list={["inquiry-page__body", { "inquiry-page__body--solo": !hasAside }]}>
+    <slot />
+    {
+      hasAside && (
+        <aside class="inquiry-page__aside">
+          <Fragment set:html={aside} />
+        </aside>
+      )
+    }
+  </div>
+</div>
+
+<style>
+  .inquiry-page {
+    padding-top: min(var(--section-y), var(--space-9));
+    padding-bottom: var(--section-y);
+    display: grid;
+    gap: var(--space-7);
+  }
+  @media (min-width: 1024px) {
+    .inquiry-page {
+      gap: var(--space-8);
+    }
+  }
+  .inquiry-page__header {
+    display: grid;
+    gap: var(--space-5);
+    max-width: var(--container-narrow);
+  }
+
+  .inquiry-page__body {
+    display: grid;
+    gap: var(--space-7);
+    align-items: start;
+  }
+  .inquiry-page__body--solo {
+    max-width: var(--container-narrow);
+  }
+  @media (min-width: 1024px) {
+    .inquiry-page__body:not(.inquiry-page__body--solo) {
+      grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+      gap: var(--space-8);
+    }
+  }
+
+  /* Columna de datos: lista de definiciones (dt = etiqueta, dd = dato). */
+  .inquiry-page__aside {
+    display: grid;
+    gap: var(--space-6);
+  }
+  .inquiry-page__aside :global(dl) {
+    display: grid;
+    gap: var(--space-5);
+  }
+  .inquiry-page__aside :global(dt) {
+    font-weight: var(--weight-medium);
+    color: var(--color-heading);
+  }
+  .inquiry-page__aside :global(dd) {
+    margin: var(--space-1) 0 0;
+    color: var(--color-text-secondary);
+  }
+  .inquiry-page__aside :global(dd a) {
+    color: var(--color-text);
+  }
+  .inquiry-page__aside :global(.btn) {
+    justify-self: start;
+  }
+</style>

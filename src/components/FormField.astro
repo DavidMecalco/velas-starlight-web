@@ -1,0 +1,99 @@
+---
+/**
+ * Campo de formulario: etiqueta visible, control y error en texto debajo.
+ * El error lo escribe src/scripts/inquiry-form.ts; sin JavaScript valida el navegador.
+ */
+interface Option {
+  value: string;
+  label: string;
+}
+
+interface Props {
+  name: string;
+  label: string;
+  type?: "text" | "email" | "tel" | "date" | "number" | "select" | "textarea";
+  /** Campo opcional: muestra "(opcional)" junto a la etiqueta y no lleva `required`. */
+  optional?: boolean;
+  autocomplete?: string;
+  /** Opciones de un `select`; la primera vacía se agrega con `placeholder`. */
+  options?: Option[];
+  placeholder?: string;
+  min?: number;
+  maxlength?: number;
+  /** Mensaje cuando el campo obligatorio está vacío. */
+  requiredMessage?: string;
+  /** Mensaje cuando el formato no es válido (correo, número). */
+  invalidMessage?: string;
+  /** Clase extra para colocar el campo en la rejilla del formulario. */
+  class?: string;
+}
+
+const {
+  name,
+  label,
+  type = "text",
+  optional = false,
+  autocomplete,
+  options = [],
+  placeholder,
+  min,
+  maxlength,
+  requiredMessage,
+  invalidMessage,
+  class: className,
+} = Astro.props;
+
+const id = `field-${name}`;
+const errorId = `${id}-error`;
+const common = {
+  id,
+  name,
+  required: !optional,
+  autocomplete,
+  "aria-describedby": errorId,
+  "data-required-message": requiredMessage,
+  "data-invalid-message": invalidMessage,
+};
+---
+
+<div class:list={["field", className]}>
+  <label for={id}>
+    {label}
+    {optional && <span class="field__optional">(opcional)</span>}
+  </label>
+  {
+    type === "select" ? (
+      <select class="select" {...common}>
+        <option value="">{placeholder ?? "Elige una opción"}</option>
+        {options.map((o) => (
+          <option value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    ) : type === "textarea" ? (
+      <textarea class="textarea" rows="6" maxlength={maxlength} {...common} />
+    ) : (
+      <input
+        class="input"
+        type={type}
+        min={min}
+        step={type === "number" ? 1 : undefined}
+        inputmode={type === "number" ? "numeric" : undefined}
+        maxlength={maxlength}
+        {...common}
+      />
+    )
+  }
+  <p class="field__error" id={errorId}></p>
+</div>
+
+<style>
+  .field__optional {
+    margin-left: var(--space-1);
+    font-weight: var(--weight-regular);
+    color: var(--color-text-muted);
+  }
+  /* El error ocupa lugar solo cuando tiene texto. */
+  .field__error:empty {
+    display: none;
+  }
+</style>

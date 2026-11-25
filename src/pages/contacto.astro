@@ -1,0 +1,109 @@
+---
+import Base from "../layouts/Base.astro";
+import FormField from "../components/FormField.astro";
+import InquiryForm from "../components/InquiryForm.astro";
+import InquiryLayout from "../components/InquiryLayout.astro";
+import { site, whatsappUrl } from "../config/site";
+
+// Cada dato aparece solo si existe en src/config/site.ts.
+const whatsapp = whatsappUrl();
+const hasAside = Boolean(whatsapp || site.email || site.horario || site.zona);
+
+const subjects = [
+  { value: "producto", label: "Pregunta sobre un producto" },
+  { value: "pedido", label: "Mi pedido o cotización" },
+  { value: "envios", label: "Envíos y entregas" },
+  { value: "otro", label: "Otro" },
+];
+---
+
+<Base
+  title="Contacto"
+  description="Escríbenos para resolver dudas sobre velas, productos de belleza, insumos, pedidos o envíos."
+  canonical="/contacto"
+>
+  <InquiryLayout title="Contacto">
+    <Fragment slot="lead">
+      Escríbenos para resolver dudas sobre productos, pedidos o envíos.
+      {site.tiempoRespuesta && <>Respondemos en {site.tiempoRespuesta}.</>}
+    </Fragment>
+
+    <InquiryForm
+      form="contacto"
+      title="Formulario de contacto"
+      submitLabel="Enviar mensaje"
+      successMessage="Recibimos tu mensaje. Te responderemos al correo que nos diste."
+    >
+      <FormField name="name" label="Nombre" autocomplete="name" maxlength={120} requiredMessage="Escribe tu nombre." />
+      <FormField
+        class="field--half"
+        name="email"
+        label="Correo electrónico"
+        type="email"
+        autocomplete="email"
+        maxlength={200}
+        requiredMessage="Escribe tu correo para poder responderte."
+      />
+      <FormField class="field--half" name="phone" label="Teléfono" type="tel" autocomplete="tel" maxlength={30} optional />
+      {/* "subject" no tiene columna en `inquiries`: pendiente para Datos/Backend (docs/RUTAS.md). */}
+      <FormField
+        name="subject"
+        label="Asunto"
+        type="select"
+        placeholder="Elige un asunto"
+        options={subjects}
+        requiredMessage="Elige un asunto."
+      />
+      <FormField
+        name="message"
+        label="Mensaje"
+        type="textarea"
+        maxlength={3000}
+        requiredMessage="Escribe tu mensaje."
+      />
+      <Fragment slot="note">
+        Usamos tus datos solo para responderte. Consulta el <a class="link-quiet" href="/privacidad">aviso de privacidad</a>.
+      </Fragment>
+    </InquiryForm>
+
+    {
+      hasAside && (
+        <Fragment slot="aside">
+          <dl>
+            {whatsapp && (
+              <div>
+                <dt>WhatsApp</dt>
+                <dd>{site.whatsapp}. Lo más rápido para cotizaciones y seguimiento.</dd>
+              </div>
+            )}
+            {site.email && (
+              <div>
+                <dt>Correo</dt>
+                <dd>
+                  <a href={`mailto:${site.email}`}>{site.email}</a>
+                </dd>
+              </div>
+            )}
+            {site.horario && (
+              <div>
+                <dt>Horario de atención</dt>
+                <dd>{site.horario}</dd>
+              </div>
+            )}
+            {site.zona && (
+              <div>
+                <dt>Ubicación y entregas</dt>
+                <dd>{site.zona}. Entregas coordinadas contigo; pago contra entrega.</dd>
+              </div>
+            )}
+          </dl>
+          {whatsapp && (
+            <a class="btn btn--secondary" href={whatsapp} rel="noopener">
+              Escribir por WhatsApp
+            </a>
+          )}
+        </Fragment>
+      )
+    }
+  </InquiryLayout>
+</Base>

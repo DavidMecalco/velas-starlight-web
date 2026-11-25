@@ -54,8 +54,8 @@ Documento de referencia de la arquitectura del sitio. Define qué páginas exist
 | `/carrito` | `carrito.astro` | Revisar productos, cantidades y subtotal. Convive con el cajón lateral del encabezado | SSR (valida precios y stock) | `product_variants` | 3 |
 | `/checkout` | `checkout.astro` | Correo, dirección, método de envío, datos de facturación opcionales y pago | SSR | `addresses`, `orders` | 4 |
 | `/checkout/confirmacion/[pedido]` | `checkout/confirmacion/[pedido].astro` | Resumen del pedido y siguiente paso (referencia de pago, tiempos) | SSR | `orders`, `order_items`, `payments` | 4 |
-| `/contacto` | `contacto.astro` | Datos de contacto y formulario general | Estática + endpoint | `quote_requests` | 8 |
-| `/eventos-y-mayoreo` | `eventos-y-mayoreo.astro` | Solicitud de cotización para eventos, bodas y compras al mayoreo | Estática + endpoint | `quote_requests`, `wholesale_tiers` | 8 |
+| `/contacto` | `contacto.astro` | Datos de contacto y formulario general. Cada dato sale de `src/config/site.ts` y solo aparece si existe | SSR sin consultas + endpoint | `inquiries` | 8 |
+| `/eventos-y-mayoreo` | `eventos-y-mayoreo.astro` | Solicitud de cotización para eventos, bodas y compras al mayoreo. Anticipación y pedido mínimo salen de `src/config/site.ts` | SSR sin consultas + endpoint | `inquiries`, `wholesale_tiers` | 8 |
 | `/nosotros` | `nosotros.astro` | Historia, proceso artesanal, ingredientes | Estática | (ninguna) | 8 |
 | `/blog` | `blog/index.astro` | Artículos de la marca. Pendiente de definir (fuente de datos y diseño, incluido el estado sin artículos). Enlazado desde el menú; da 404 hasta que exista | Por definir | Por definir | Por definir |
 | `/envios`, `/devoluciones`, `/faq` | `envios.astro`, `devoluciones.astro`, `faq.astro` | Políticas y preguntas frecuentes | Estática | (ninguna) | 8 |
@@ -103,9 +103,23 @@ Los endpoints viven en `src/pages/api/`. Los que escriben datos sensibles usan l
 | `POST /api/checkout` | Crea el pedido y sus líneas, descuenta reserva de stock, devuelve el enlace de pago | Público | 4 |
 | `POST /api/envio/cotizar` | Calcula el costo de envío por peso y código postal | Público | 6 |
 | `POST /api/webhooks/mercadopago` (o el proveedor elegido) | Confirma el pago, marca el pedido como pagado, es idempotente | Firma del proveedor | 6 |
-| `POST /api/cotizaciones` | Guarda una solicitud del formulario (con antispam) | Público | 8 |
+| `POST /api/solicitudes` | Guarda una solicitud de `/contacto` o `/eventos-y-mayoreo` en `inquiries` (con antispam). Ver "Formulario de solicitudes" abajo | Público | 8 |
 | `POST /api/resenas` | Crea una reseña pendiente de moderación | Cliente | 8 |
 | `POST /api/admin/...` | Operaciones del panel (estado de pedido, productos) | Admin | 7 |
+
+### Formulario de solicitudes (`POST /api/solicitudes`)
+
+Lo envían los formularios de `/contacto` y `/eventos-y-mayoreo` (`src/components/InquiryForm.astro`). Con JavaScript se envía con `fetch` y `Accept: application/json`: una respuesta 2xx muestra el mensaje de éxito; 404, 405 o 501 (o sin red), el aviso "no disponible aún"; cualquier otro error, un aviso genérico. Sin JavaScript es un POST normal.
+
+| Campo | Origen | Columna en `inquiries` |
+|---|---|---|
+| `form` | Oculto: `contacto` o `eventos` | Ninguna; indica el formulario |
+| `name`, `email`, `phone`, `message` | Ambos (`phone` es opcional en contacto) | Mismo nombre |
+| `request_type` | Eventos: `evento`, `boda`, `corporativo`, `mayoreo`, `general` | `request_type` (contacto: `general`) |
+| `event_date` | Eventos, opcional (`AAAA-MM-DD`) | `event_date` |
+| `quantity_estimate` | Eventos, entero ≥ 1 | `quantity_estimate` (int) |
+| `subject` | Contacto: `producto`, `pedido`, `envios`, `otro` | **Pendiente para Datos/Backend:** no tiene columna. Decidir si se agrega al mensaje, se guarda en `request_type` o se crea una columna en una migración nueva |
+| `website` | Trampa contra spam, oculta y fuera del tabulador | Ninguna. Si trae texto, Backend responde 2xx sin guardar |
 
 ## 7. Páginas del sistema
 
@@ -173,7 +187,7 @@ src/
     cerrar-sesion.ts
     cuenta/ index.astro, pedidos/, direcciones.astro, perfil.astro
     admin/ index.astro, productos/, pedidos/, cotizaciones/, resenas/
-    api/ carrito/, checkout.ts, envio/, webhooks/, cotizaciones.ts, resenas.ts, admin/
+    api/ carrito/, checkout.ts, envio/, webhooks/, solicitudes.ts, resenas.ts, admin/
     404.astro, 500.astro, robots.txt.ts
   layouts/ Base.astro, Cuenta.astro, Admin.astro
   components/ Header.astro, Footer.astro, ProductCard.astro, CartDrawer.astro ...
